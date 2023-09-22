@@ -7,9 +7,10 @@ edition = "2021"
 
 [dependencies]
 kamadak-exif = "0.5.5"
-magic = "0.14"
+nom = "7"
 image = {version = "0.24", default-features = false, features = ["tiff"]}
 serde_json = "1"
+rfd = "0.12"
 
 eframe = {version = "0.22", default-features = false, features = ["glow", "default_fonts"]}
 egui_extras = {version = "0.22", features = ["image"]}

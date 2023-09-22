@@ -29,8 +29,9 @@ pub fn photo(data: Vec<u8>) -> Object {
     object
 }
 
+/*
 impl Object {
-    pub fn display(&self) {
+    pub fn display(&self, ui: &mut eframe::egui::Ui) {
         match &self.form {
             Form::Empty => {
                 println!("--- empty object ---");
@@ -67,3 +68,4 @@ fn readablificate(data: &Vec<u8>) -> String {
     }
     string
 }
+*/

@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 
 pub mod builders;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Object {
     pub data: Vec<u8>,
     pub tags: HashSet<Tag>,
@@ -26,7 +26,7 @@ impl Hash for Object {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Clone)]
 pub enum Tag {
     Category(String),
     Exif {
@@ -58,7 +58,7 @@ impl Display for Tag {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Clone)]
 pub enum DateConcerns {
     Created, // When an object was created.
     Added, // When the object was added to the system.
@@ -77,7 +77,7 @@ impl Display for DateConcerns {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Clone)]
 pub enum Form {
     Empty,
     PlainText,
@@ -92,7 +92,7 @@ pub enum Form {
     OtherUnknown(String),
 }
 
-#[derive(Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Clone)]
 pub struct DateTime {
     year: Option<i32>,
     month: Option<u8>,
@@ -139,8 +139,36 @@ impl Display for DateTime {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Location {
     place: Option<String>,
     lat_long: (u64, u64), // *10000
+}
+
+impl Object {
+    pub fn search(&self, query: String) -> bool {
+        match self.form {
+            Form::Empty => false,
+            Form::Photo => {
+                for tag in &self.tags {
+                    match tag {
+                        Tag::Exif {value,..} => {
+                            if value.contains(&query) {
+                                return true;
+                            }
+                        },
+                        _ => {
+                            return false;
+                        }
+                    };
+                }
+                if self.tags.is_empty() && query.is_empty() {
+                    return true;
+                }
+                false
+            }
+            Form::PlainText => String::from_utf8_lossy(self.data.as_slice()).contains(&query),
+            _ => false
+        }
+    }
 }
