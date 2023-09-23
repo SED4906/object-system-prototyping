@@ -36,6 +36,7 @@ struct MyApp {
     allowed_to_close: bool,
     show_confirmation_dialog: bool,
     dropped_files: Vec<egui::DroppedFile>,
+    ask_to_delete: bool,
 }
 
 impl Default for MyApp {
@@ -51,6 +52,7 @@ impl Default for MyApp {
             allowed_to_close: false,
             show_confirmation_dialog: false,
             dropped_files: vec![],
+            ask_to_delete: false,
         }
     }
 }
@@ -97,6 +99,7 @@ impl eframe::App for MyApp {
                     import_file(file.path.clone().unwrap().as_path().to_str().unwrap(), &mut self.objects);
                 }
                 self.refresh();
+                self.dropped_files.clear();
             }
 
             preview_files_being_dropped(ctx);
@@ -112,6 +115,9 @@ impl eframe::App for MyApp {
                 if let Some(picked) = self.picked {
                     if ui.button("Back").clicked() {
                         self.picked = None;
+                    }
+                    if ui.button("🗑").clicked() {
+                        self.ask_to_delete = true;
                     }
                     match self.picktype {
                         Form::Photo => {
@@ -146,7 +152,8 @@ impl eframe::App for MyApp {
                     index = 0;
                     for ptxt in self.ptxts.iter() {
                         ui.group(|ui| {
-                            ui.label(&ptxt.0);
+                            ui.set_max_height(256.0);
+                            ui.label(truncate_dotted(ptxt.0.clone(), 128));
                             if ui.button("More info...").clicked() {
                                 self.picked = Some(index);
                                 self.picktype = Form::PlainText;
@@ -157,6 +164,42 @@ impl eframe::App for MyApp {
                 }
             });
         });
+
+        if self.ask_to_delete {
+            if self.picked.is_none() {
+                self.ask_to_delete = false;
+            }
+            // Show confirmation dialog:
+            egui::Window::new("Really delete?")
+                .collapsible(false)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        if ui.button("No").clicked() {
+                            self.ask_to_delete = false;
+                        }
+
+                        if ui.button("Yes!").clicked() {
+                            match self.picktype {
+                                Form::Photo => {
+                                    self.objects.remove(&self.imgs[self.picked.unwrap()].1);
+                                    self.picked = None;
+                                    self.picktype = Form::Empty;
+                                }
+                                Form::Empty => {
+                                },
+                                Form::PlainText => {
+                                    self.objects.remove(&self.ptxts[self.picked.unwrap()].1);
+                                    self.picked = None;
+                                    self.picktype = Form::Empty;
+                                }
+                                _ => {}
+                            }
+                            self.refresh();
+                        }
+                    });
+                });
+        }
 
         if self.show_confirmation_dialog {
             // Show confirmation dialog:
@@ -252,4 +295,14 @@ pub fn import_file_bytes(data: Vec<u8>, objects: &mut HashSet<Object>) -> Option
         _ => objects.insert(binary(data)),
     };
     Some(())
+}
+
+pub fn truncate_dotted(s: String, to: usize) -> String {
+    if to > 3 && s.len() > to {
+        let mut s = s.chars().take(to-3).collect::<String>();
+        s.push_str("…");
+        s
+    } else {
+        s
+    }
 }
