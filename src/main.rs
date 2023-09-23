@@ -37,11 +37,12 @@ struct MyApp {
     show_confirmation_dialog: bool,
     dropped_files: Vec<egui::DroppedFile>,
     ask_to_delete: bool,
+    starting_up: bool,
 }
 
 impl Default for MyApp {
     fn default() -> Self {
-        let mut objects = load_objects("object_store");
+        let objects = load_objects("object_store");
         Self {
             query: String::new(),
             objects,
@@ -53,6 +54,7 @@ impl Default for MyApp {
             show_confirmation_dialog: false,
             dropped_files: vec![],
             ask_to_delete: false,
+            starting_up: true,
         }
     }
 }
@@ -86,13 +88,24 @@ impl MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if self.starting_up {
+            self.refresh();
+            self.starting_up = false;
+        }
         egui::CentralPanel::default().show(ctx, |ui| {
-            if ui.button("Refresh").clicked() {
-                self.refresh();
-            }
-            if ui.text_edit_singleline(&mut self.query).changed() {
-                self.refresh();
-            }
+            ui.horizontal(|ui| {
+                if ui.button(if self.picked.is_none() {"Refresh"} else {"Back"}).clicked() {
+                    self.refresh();
+                }
+                if ui.text_edit_singleline(&mut self.query).changed() {
+                    self.refresh();
+                }
+                if self.picked.is_some() {
+                    if ui.button("🗑").clicked() {
+                        self.ask_to_delete = true;
+                    }
+                }
+            });
 
             if !self.dropped_files.is_empty() {
                 for file in &self.dropped_files {
@@ -113,12 +126,6 @@ impl eframe::App for MyApp {
 
             egui::ScrollArea::new([true, true]).show(ui, |ui| {
                 if let Some(picked) = self.picked {
-                    if ui.button("Back").clicked() {
-                        self.picked = None;
-                    }
-                    if ui.button("🗑").clicked() {
-                        self.ask_to_delete = true;
-                    }
                     match self.picktype {
                         Form::Photo => {
                             ui.image(self.imgs[picked].0.texture_id(ui.ctx()),  self.imgs[picked].0.size_vec2());
