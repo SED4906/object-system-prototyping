@@ -149,6 +149,9 @@ impl Object {
     pub fn search(&self, query: String) -> bool {
         match self.form {
             Form::Empty => false,
+            Form::Binary => {
+                hex::encode(&self.data.as_slice()).contains(&query)
+            }
             Form::Photo => {
                 for tag in &self.tags {
                     match tag {

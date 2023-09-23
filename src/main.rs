@@ -31,6 +31,7 @@ struct MyApp {
     objects: HashSet<Object>,
     imgs: Vec<(egui_extras::RetainedImage, Object)>,
     ptxts: Vec<(String, Object)>,
+    bins: Vec<(String, Object)>,
     picked: Option<usize>,
     picktype: Form,
     allowed_to_close: bool,
@@ -38,6 +39,7 @@ struct MyApp {
     dropped_files: Vec<egui::DroppedFile>,
     ask_to_delete: bool,
     starting_up: bool,
+    size: usize,
 }
 
 impl Default for MyApp {
@@ -48,6 +50,7 @@ impl Default for MyApp {
             objects,
             imgs: vec![],
             ptxts: vec![],
+            bins: vec![],
             picked: None,
             picktype: Form::Empty,
             allowed_to_close: false,
@@ -55,6 +58,7 @@ impl Default for MyApp {
             dropped_files: vec![],
             ask_to_delete: false,
             starting_up: true,
+            size: 128,
         }
     }
 }
@@ -79,9 +83,19 @@ impl MyApp {
         }
     }
 
+    fn refresh_bins(&mut self) {
+        self.bins.clear();
+        self.picked = None;
+        self.picktype = Form::Empty;
+        for object in self.objects.iter().filter(|o| o.form == Form::Binary).filter(|o| o.search(self.query.clone())) {
+            self.bins.push((hex::encode(&object.data),object.clone()));
+        }
+    }
+
     fn refresh(&mut self) {
         self.refresh_images();
         self.refresh_plaintext();
+        self.refresh_bins();
     }
 }
 
@@ -99,6 +113,9 @@ impl eframe::App for MyApp {
                 }
                 if ui.text_edit_singleline(&mut self.query).changed() {
                     self.refresh();
+                }
+                if self.picked.is_none() {
+                    ui.add(egui::Slider::new(&mut self.size, 32..=256).text("Size"));
                 }
                 if self.picked.is_some() {
                     if ui.button("🗑").clicked() {
@@ -136,6 +153,9 @@ impl eframe::App for MyApp {
                         },
                         Form::PlainText => {
                             ui.label(&self.ptxts[picked].0);
+                        },
+                        Form::Binary => {
+                            ui.label(&self.bins[picked].0);
                         }
                         _ => {}
                     }
@@ -144,14 +164,14 @@ impl eframe::App for MyApp {
                     let mut index = 0;
                     for img in self.imgs.iter() {
                         ui.group(|ui| {
-                            ui.image(img.0.texture_id(ui.ctx()), if img.0.size_vec2().max_elem() > 256.0 {
-                                img.0.size_vec2().normalized().mul(Vec2{x: 256.0, y: 256.0})
+                            ui.image(img.0.texture_id(ui.ctx()), if img.0.size_vec2().max_elem() > self.size as f32 {
+                                img.0.size_vec2().normalized().mul(Vec2{x: self.size as f32, y: self.size as f32})
                             } else {
                                 img.0.size_vec2()
                             });
-                            if ui.button("More info...").clicked() {
+                            if let Some((index, form)) = more_info_bar(ui, index, &Form::Photo) {
                                 self.picked = Some(index);
-                                self.picktype = Form::Photo;
+                                self.picktype = form;
                             }
                         });
                         index += 1;
@@ -160,10 +180,22 @@ impl eframe::App for MyApp {
                     for ptxt in self.ptxts.iter() {
                         ui.group(|ui| {
                             ui.set_max_height(256.0);
-                            ui.label(truncate_dotted(ptxt.0.clone(), 128));
-                            if ui.button("More info...").clicked() {
+                            ui.label(truncate_dotted(ptxt.0.clone(), self.size));
+                            if let Some((index, form)) = more_info_bar(ui, index, &Form::PlainText) {
                                 self.picked = Some(index);
-                                self.picktype = Form::PlainText;
+                                self.picktype = form;
+                            }
+                        });
+                        index += 1;
+                    }
+                    index = 0;
+                    for bin in self.bins.iter() {
+                        ui.group(|ui| {
+                            ui.set_max_height(256.0);
+                            ui.label(truncate_dotted(bin.0.clone(), self.size));
+                            if let Some((index, form)) = more_info_bar(ui, index, &Form::Binary) {
+                                self.picked = Some(index);
+                                self.picktype = form;
                             }
                         });
                         index += 1;
@@ -199,6 +231,11 @@ impl eframe::App for MyApp {
                                     self.objects.remove(&self.ptxts[self.picked.unwrap()].1);
                                     self.picked = None;
                                     self.picktype = Form::Empty;
+                                },
+                                Form::Binary => {
+                                    self.objects.remove(&self.bins[self.picked.unwrap()].1);
+                                    self.picked = None;
+                                    self.picktype = Form::Binary;
                                 }
                                 _ => {}
                             }
@@ -312,4 +349,21 @@ pub fn truncate_dotted(s: String, to: usize) -> String {
     } else {
         s
     }
+}
+
+fn more_info_bar(ui: &mut egui::Ui, index: usize, form: &Form) -> Option<(usize, Form)>{
+    let mut result = None;
+    ui.horizontal(|ui| {
+        if ui.button("🔧").clicked() {
+            result = Some((index, form.clone()));
+        }
+        match form.clone() {
+            Form::PlainText => ui.label("Text (Plain)"),
+            Form::Photo => ui.label("Photo"),
+            Form::Binary => ui.label("Binary (Unknown format)"),
+            _ => ui.label("Unknown"),
+        };
+
+    });
+    result
 }
