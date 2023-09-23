@@ -12,7 +12,7 @@ image = {version = "0.24", default-features = false, features = ["tiff"]}
 serde_json = "1"
 rfd = "0.12"
 
-eframe = {version = "0.22", default-features = false, features = ["glow", "default_fonts"]}
+eframe = "0.22"
 egui_extras = {version = "0.22", features = ["image"]}
 env_logger = "0.10"
 
