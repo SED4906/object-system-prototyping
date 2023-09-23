@@ -53,7 +53,7 @@ impl Display for Tag {
             Self::Title(s) => f.write_fmt(format_args!("Title | {s}")),
             Self::Author(s) => f.write_fmt(format_args!("Author | {s}")),
             Self::Date{value, concerns} => f.write_fmt(format_args!("Date {concerns} | {value}")),
-            Self::OtherUnknown{tag, value} => f.write_fmt(format_args!("Other {tag} | {value}")),
+            Self::OtherUnknown{tag, value} => f.write_fmt(format_args!("{tag} | {value}")),
         }
     }
 }

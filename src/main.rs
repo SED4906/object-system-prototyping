@@ -14,7 +14,7 @@ mod magic_identify;
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(600.0, 800.0)),
+        initial_window_size: Some(egui::vec2(650.0, 800.0)),
         ..Default::default()
     };
     eframe::run_native(
@@ -40,6 +40,10 @@ struct MyApp {
     ask_to_delete: bool,
     starting_up: bool,
     size: usize,
+    show_imgs: bool,
+    show_ptxts: bool,
+    show_bins: bool,
+    show_show: bool,
 }
 
 impl Default for MyApp {
@@ -59,6 +63,10 @@ impl Default for MyApp {
             ask_to_delete: false,
             starting_up: true,
             size: 128,
+            show_ptxts: true,
+            show_imgs: true,
+            show_bins: true,
+            show_show: false,
         }
     }
 }
@@ -116,6 +124,8 @@ impl eframe::App for MyApp {
                 }
                 if self.picked.is_none() {
                     ui.add(egui::Slider::new(&mut self.size, 32..=256).text("Size"));
+                    ui.checkbox(&mut self.show_show, "Show/hide");
+
                 }
                 if self.picked.is_some() {
                     if ui.button("🗑").clicked() {
@@ -161,44 +171,51 @@ impl eframe::App for MyApp {
                     }
 
                 } else {
+
                     let mut index = 0;
-                    for img in self.imgs.iter() {
-                        ui.group(|ui| {
-                            ui.image(img.0.texture_id(ui.ctx()), if img.0.size_vec2().max_elem() > self.size as f32 {
-                                img.0.size_vec2().normalized().mul(Vec2{x: self.size as f32, y: self.size as f32})
-                            } else {
-                                img.0.size_vec2()
+                    if self.show_imgs {
+                        for img in self.imgs.iter() {
+                            ui.group(|ui| {
+                                ui.image(img.0.texture_id(ui.ctx()), if img.0.size_vec2().max_elem() > self.size as f32 {
+                                    img.0.size_vec2().normalized().mul(Vec2{x: self.size as f32, y: self.size as f32})
+                                } else {
+                                    img.0.size_vec2()
+                                });
+                                if let Some((index, form)) = more_info_bar(ui, index, &Form::Photo) {
+                                    self.picked = Some(index);
+                                    self.picktype = form;
+                                }
                             });
-                            if let Some((index, form)) = more_info_bar(ui, index, &Form::Photo) {
-                                self.picked = Some(index);
-                                self.picktype = form;
-                            }
-                        });
-                        index += 1;
+                            index += 1;
+                        }
                     }
-                    index = 0;
-                    for ptxt in self.ptxts.iter() {
-                        ui.group(|ui| {
-                            ui.set_max_height(256.0);
-                            ui.label(truncate_dotted(ptxt.0.clone(), self.size));
-                            if let Some((index, form)) = more_info_bar(ui, index, &Form::PlainText) {
-                                self.picked = Some(index);
-                                self.picktype = form;
-                            }
-                        });
-                        index += 1;
+                    if self.show_ptxts {
+                        index = 0;
+                        for ptxt in self.ptxts.iter() {
+                            ui.group(|ui| {
+                                ui.set_max_height(256.0);
+                                ui.label(truncate_dotted(ptxt.0.clone(), self.size));
+                                if let Some((index, form)) = more_info_bar(ui, index, &Form::PlainText) {
+                                    self.picked = Some(index);
+                                    self.picktype = form;
+                                }
+                            });
+                            index += 1;
+                        }
                     }
-                    index = 0;
-                    for bin in self.bins.iter() {
-                        ui.group(|ui| {
-                            ui.set_max_height(256.0);
-                            ui.label(truncate_dotted(bin.0.clone(), self.size));
-                            if let Some((index, form)) = more_info_bar(ui, index, &Form::Binary) {
-                                self.picked = Some(index);
-                                self.picktype = form;
-                            }
-                        });
-                        index += 1;
+                    if self.show_bins {
+                        index = 0;
+                        for bin in self.bins.iter() {
+                            ui.group(|ui| {
+                                ui.set_max_height(256.0);
+                                ui.label(truncate_dotted(bin.0.clone(), self.size));
+                                if let Some((index, form)) = more_info_bar(ui, index, &Form::Binary) {
+                                    self.picked = Some(index);
+                                    self.picktype = form;
+                                }
+                            });
+                            index += 1;
+                        }
                     }
                 }
             });
@@ -241,6 +258,19 @@ impl eframe::App for MyApp {
                             }
                             self.refresh();
                         }
+                    });
+                });
+        }
+
+        if self.show_show {
+            egui::Window::new("Show/hide")
+                .collapsible(false)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut self.show_imgs, "Photos");
+                        ui.checkbox(&mut self.show_ptxts, "Plain texts");
+                        ui.checkbox(&mut self.show_bins, "Binaries");
                     });
                 });
         }
@@ -363,7 +393,6 @@ fn more_info_bar(ui: &mut egui::Ui, index: usize, form: &Form) -> Option<(usize,
             Form::Binary => ui.label("Binary (Unknown format)"),
             _ => ui.label("Unknown"),
         };
-
     });
     result
 }
